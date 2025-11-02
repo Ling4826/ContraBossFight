@@ -128,10 +128,6 @@ public class JavaCrawler extends AbstractSprite {
             }
         }
 
-        BoundingBox hb = getBoundingBox();
-        gc.setStroke(Color.CYAN);
-        gc.setLineWidth(1);
-        gc.strokeRect(hb.getMinX(), hb.getMinY(), hb.getWidth(), hb.getHeight());
     }
 
     @Override

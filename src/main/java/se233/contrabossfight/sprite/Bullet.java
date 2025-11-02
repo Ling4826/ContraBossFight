@@ -205,7 +205,7 @@ public class Bullet extends AbstractSprite {
             renderSprite(gc);
         }
 
-        renderDebugHitbox(gc);
+        // renderDebugHitbox(gc);
     }
 
     private void renderExplosion(GraphicsContext gc) {

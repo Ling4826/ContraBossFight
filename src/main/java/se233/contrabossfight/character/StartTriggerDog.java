@@ -113,10 +113,7 @@ public class StartTriggerDog extends AbstractSprite {
                 frame.getMinX(), frame.getMinY(), frame.getWidth(), frame.getHeight(),
                 this.x, this.y, this.width, this.height);
 
-        BoundingBox hb = getBoundingBox();
-        gc.setStroke(Color.YELLOW);
-        gc.setLineWidth(1);
-        gc.strokeRect(hb.getMinX(), hb.getMinY(), hb.getWidth(), hb.getHeight());
+
     }
 
 }

@@ -21,7 +21,9 @@ import javafx.util.Duration;
 import se233.contrabossfight.sprite.Animation;
 import se233.contrabossfight.sprite.AnimationFrame;
 import se233.contrabossfight.util.Logger;
-import javafx.scene.effect.ColorAdjust;
+import se233.contrabossfight.Model.SansPackage.Sans;
+import se233.contrabossfight.Model.Character.Player;
+import se233.contrabossfight.View.BattleBox;
 
 public class GameStage {
     private enum GameState {
@@ -30,13 +32,22 @@ public class GameStage {
         GAME_OVER,
         VICTORY_SEQUENCE,
         STAGE_CLEAR,
+        BATTLE_TRANSITION,
+        SANS_BATTLE,
+        GOOD_ENDING,
+        BAD_ENDING,
         EXIT
     }
+    private AudioClip playerHurtSound;
+    private static final double FADE_DURATION = 1.5;
+    private static final double GOOD_ENDING_DURATION = 120.0;
 
+    private int playerHP = 92;
     private GameController gameController;
     private Canvas canvas;
     private final Scene scene;
     private final GraphicsContext gc;
+    private final Pane root;
     private GameState currentGameState;
 
     private boolean isFireKeyPressed = false;
@@ -53,28 +64,45 @@ public class GameStage {
     private Image level3Background;
     private Image stageClearImage;
     private Image lifeIconImage;
+    private Image goodEndingImage;
+    private Image badEndingImage;
+
+    private AudioClip sansHitSound;
+    private AudioClip menuSelectSound;
+    private AudioClip timeStopSound;
+    private AudioClip timeResumeSound;
 
     private MediaPlayer menuMusicPlayer;
     private MediaPlayer battleMusicPlayer;
     private MediaPlayer victoryMusicPlayer;
     private MediaPlayer gameOverMusicPlayer;
+    private MediaPlayer sansMusicPlayer;
+    private MediaPlayer goodEndingMusicPlayer;
+    private MediaPlayer badEndingMusicPlayer;
+
     private Media battleMusicMedia1;
     private Media battleMusicMedia2;
-    private AudioClip menuSelectSound;
-    private AudioClip timeStopSound;
-    private AudioClip timeResumeSound;
+    private Media sansBattleMusicMedia;
+    private Media goodEndingMusicMedia;
+    private Media badEndingMusicMedia;
 
     private double victoryTimer = 0.0;
+    private double goodEndingTimer = 0.0;
     private boolean victoryMusicPlayed = false;
     private boolean gameOverMusicPlayed = false;
+
+    private boolean isFadingIn = false;
+    private double fadeOpacity = 0.0;
+    private double fadeTimer = 0.0;
+    private SansBattleScene sansBattle;
 
     public GameStage(double width, double height) {
         this.canvas = new Canvas(width, height);
         this.gc = this.canvas.getGraphicsContext2D();
-        Pane root = new Pane(this.canvas);
+        this.root = new Pane(this.canvas);
         this.scene = new Scene(root, width, height);
         this.gameController = new GameController();
-
+        this.root.setStyle("-fx-background-color: black;");
         loadImages();
         loadSounds();
 
@@ -86,7 +114,7 @@ public class GameStage {
         try {
             this.level1Background = new Image(getClass().getResourceAsStream("/se233/contrabossfight/images/Level1.png"));
             this.level2Background = new Image(getClass().getResourceAsStream("/se233/contrabossfight/images/Level2.png"));
-            this.level3Background = new Image(getClass().getResourceAsStream("/se233/contrabossfight/images/Level1.png"));
+            this.level3Background = new Image(getClass().getResourceAsStream("/se233/contrabossfight/images/Level3.png"));
             this.titleImage = new Image(getClass().getResourceAsStream("/se233/contrabossfight/images/TitleScreen.png"));
 
             BoundingBox frame1 = new BoundingBox(0, 0, 256, 224);
@@ -99,6 +127,8 @@ public class GameStage {
             this.menuSelectorIcon = new Image(getClass().getResourceAsStream("/se233/contrabossfight/images/MenuSelector.png"));
             this.lifeIconImage = new Image(getClass().getResourceAsStream("/se233/contrabossfight/images/LifeIcon.png"));
             this.stageClearImage = new Image(getClass().getResourceAsStream("/se233/contrabossfight/images/stage_clear_screen.png"));
+            this.goodEndingImage = new Image(getClass().getResourceAsStream("/se233/contrabossfight/images/project3ending1.png"));
+            this.badEndingImage = new Image(getClass().getResourceAsStream("/se233/contrabossfight/images/project3ending2.png"));
         } catch (Exception e) {
             Logger.log(Logger.LogType.FATAL, "Failed to load image", e);
         }
@@ -135,7 +165,47 @@ public class GameStage {
             this.timeStopSound = new AudioClip(getClass().getResource(timeStopSoundPath).toExternalForm());
 
             String timeResumeSoundPath = "/se233/contrabossfight/sounds/timeResumeSound.m4a";
-            this.timeResumeSound = new AudioClip(getClass().getResource(timeStopSoundPath).toExternalForm());
+            this.timeResumeSound = new AudioClip(getClass().getResource(timeResumeSoundPath).toExternalForm());
+
+            try {
+                String sansMusicPath = "/se233/contrabossfight/sounds/Megalovania.mp3";
+                this.sansBattleMusicMedia = new Media(getClass().getResource(sansMusicPath).toExternalForm());
+                this.sansMusicPlayer = new MediaPlayer(this.sansBattleMusicMedia);
+                this.sansMusicPlayer.setCycleCount(MediaPlayer.INDEFINITE);
+            } catch (Exception e) {
+                Logger.log(Logger.LogType.WARN, "Failed to load Sans battle music.", e);
+            }
+
+            try {
+                String endingMusicPath = "/se233/contrabossfight/sounds/EndingTheme.mp3";
+                this.goodEndingMusicMedia = new Media(getClass().getResource(endingMusicPath).toExternalForm());
+                this.goodEndingMusicPlayer = new MediaPlayer(this.goodEndingMusicMedia);
+                this.goodEndingMusicPlayer.setCycleCount(MediaPlayer.INDEFINITE);
+            } catch (Exception e) {
+                Logger.log(Logger.LogType.WARN, "Failed to load Good Ending music.", e);
+            }
+
+            try {
+                String badEndingMusicPath = "/se233/contrabossfight/sounds/BadEndingTheme.mp3";
+                this.badEndingMusicMedia = new Media(getClass().getResource(badEndingMusicPath).toExternalForm());
+                this.badEndingMusicPlayer = new MediaPlayer(this.badEndingMusicMedia);
+                this.badEndingMusicPlayer.setCycleCount(MediaPlayer.INDEFINITE);
+            } catch (Exception e) {
+                Logger.log(Logger.LogType.WARN, "Failed to load Bad Ending music.", e);
+            }
+
+            try {
+                String hitSoundPath = "/se233/contrabossfight/sounds/Hit.wav";
+                this.sansHitSound = new AudioClip(getClass().getResource(hitSoundPath).toExternalForm());
+            } catch (Exception e) {
+                Logger.log(Logger.LogType.WARN, "Failed to load Sans hit sound.", e);
+            }
+            try {
+                String hurtSoundPath = "/se233/contrabossfight/sounds/Hurt.mp3";
+                this.playerHurtSound = new AudioClip(getClass().getResource(hurtSoundPath).toExternalForm());
+            } catch (Exception e) {
+                Logger.log(Logger.LogType.WARN, "Failed to load Player hurt sound.", e);
+            }
         } catch (Exception e) {
             Logger.log(Logger.LogType.FATAL, "Failed to load music/sound files", e);
         }
@@ -151,6 +221,10 @@ public class GameStage {
         }
 
         Media newMedia = (stage == 2) ? battleMusicMedia2 : battleMusicMedia1;
+        if (stage == 3) {
+            Logger.log(Logger.LogType.INFO, "No battle music for Stage 3 (Undertale).");
+            return;
+        }
 
         if (newMedia != null) {
             battleMusicPlayer = new MediaPlayer(newMedia);
@@ -181,6 +255,17 @@ public class GameStage {
                 break;
             case STAGE_CLEAR:
                 handleStageClearKeys(event);
+                break;
+            case SANS_BATTLE:
+                if (sansBattle != null) {
+                    sansBattle.handleKeyPressed(event);
+                }
+                break;
+            case GOOD_ENDING:
+                handleGoodEndingKeys(event);
+                break;
+            case BAD_ENDING:
+                handleBadEndingKeys(event);
                 break;
         }
     }
@@ -219,6 +304,10 @@ public class GameStage {
     private void handlePlayingKeys(KeyEvent event) {
         if (gameController.getPlayer() == null) return;
 
+        if (gameController.isStage3CutsceneActive()) {
+            return;
+        }
+
         switch (event.getCode()) {
             case A:
                 gameController.getPlayer().moveLeft(true);
@@ -236,21 +325,27 @@ public class GameStage {
                 gameController.getPlayer().jump();
                 break;
             case J:
-                if (!isFireKeyPressed) {
-                    gameController.getPlayer().shoot();
-                    isFireKeyPressed = true;
+                if (gameController.getCurrentStage() != 3) {
+                    if (!isFireKeyPressed) {
+                        gameController.getPlayer().shoot();
+                        isFireKeyPressed = true;
+                    }
                 }
                 break;
             case K:
-                if (!isSpecialFireKeyPressed) {
-                    gameController.getPlayer().shootSpecial();
-                    isSpecialFireKeyPressed = true;
+                if (gameController.getCurrentStage() != 3) {
+                    if (!isSpecialFireKeyPressed) {
+                        gameController.getPlayer().shootSpecial();
+                        isSpecialFireKeyPressed = true;
+                    }
                 }
                 break;
             case L:
-                if (!isTimeStopKeyPressed) {
-                    activateTimeStop();
-                    isTimeStopKeyPressed = true;
+                if (gameController.getCurrentStage() != 3) {
+                    if (!isTimeStopKeyPressed) {
+                        activateTimeStop();
+                        isTimeStopKeyPressed = true;
+                    }
                 }
                 break;
         }
@@ -327,6 +422,20 @@ public class GameStage {
         }
     }
 
+    private void handleGoodEndingKeys(KeyEvent event) {
+        if (fadeTimer >= FADE_DURATION && event.getCode() == KeyCode.J) {
+            if (menuSelectSound != null) menuSelectSound.play();
+            goToMainMenu();
+        }
+    }
+
+    private void handleBadEndingKeys(KeyEvent event) {
+        if (fadeTimer >= FADE_DURATION && event.getCode() == KeyCode.J) {
+            if (menuSelectSound != null) menuSelectSound.play();
+            goToMainMenu();
+        }
+    }
+
     private void handleKeyReleased(KeyEvent event) {
         switch (event.getCode()) {
             case J:
@@ -340,9 +449,15 @@ public class GameStage {
                 break;
         }
 
-        if (gameController == null || gameController.getPlayer() == null) return;
+        if (gameController == null) return;
+
+        if (gameController.isStage3CutsceneActive()) {
+            gameController.getPlayer().stopMovement();
+            return;
+        }
 
         if (currentGameState == GameState.PLAYING || currentGameState == GameState.VICTORY_SEQUENCE) {
+            if (gameController.getPlayer() == null) return;
             switch (event.getCode()) {
                 case A:
                     gameController.getPlayer().moveLeft(false);
@@ -356,6 +471,12 @@ public class GameStage {
                 case S:
                     gameController.getPlayer().aimDown(false);
                     break;
+            }
+        }
+
+        if (currentGameState == GameState.SANS_BATTLE) {
+            if (sansBattle != null) {
+                sansBattle.handleKeyReleased(event);
             }
         }
     }
@@ -384,6 +505,18 @@ public class GameStage {
                         break;
                     case STAGE_CLEAR:
                         renderStageClear();
+                        break;
+                    case BATTLE_TRANSITION:
+                        updateBattleTransition(deltaTime);
+                        break;
+                    case SANS_BATTLE:
+                        updateSansBattle(deltaTime);
+                        break;
+                    case GOOD_ENDING:
+                        updateGoodEnding(deltaTime);
+                        break;
+                    case BAD_ENDING:
+                        updateBadEnding(deltaTime);
                         break;
                     case EXIT:
                         Logger.log(Logger.LogType.INFO, "--- EXITING GAME ---");
@@ -420,6 +553,24 @@ public class GameStage {
     }
 
     private void checkGameStateTransitions() {
+        if (currentGameState != GameState.BATTLE_TRANSITION &&
+                gameController.getCurrentStage() == 3 &&
+                gameController.isBossFightStarted()) {
+
+            if (battleMusicPlayer != null) battleMusicPlayer.stop();
+            render();
+
+            Logger.log(Logger.LogType.FATAL, "Stage 3 Battle Triggered. Fading to black.");
+            int lives = gameController.getPlayer().getLives();
+            this.playerHP = 92 * lives;
+
+            Logger.log(Logger.LogType.INFO, "Player HP set to: " + this.playerHP);
+            this.fadeTimer = 0.0;
+            this.fadeOpacity = 0.0;
+            this.currentGameState = GameState.BATTLE_TRANSITION;
+            return;
+        }
+
         if (gameController.areAllBossesDefeated()) {
             currentGameState = GameState.VICTORY_SEQUENCE;
             victoryTimer = 0.0;
@@ -432,16 +583,26 @@ public class GameStage {
             Logger.log(Logger.LogType.FATAL, "Player is dead. Triggering GAME_OVER.");
             if (battleMusicPlayer != null) battleMusicPlayer.stop();
             gameOverMusicPlayed = false;
-
         }
     }
 
     private void updateGameOver() {
+        // (1) จัดการเสียงเมื่อเข้าสู่ Game Over
         if (gameOverMusicPlayer != null && !gameOverMusicPlayed) {
+            if (sansMusicPlayer != null) sansMusicPlayer.stop(); // <--- แก้ไข/เพิ่ม: หยุดเพลง Sans
             gameOverMusicPlayer.seek(Duration.ZERO);
             gameOverMusicPlayer.play();
             gameOverMusicPlayed = true;
         }
+
+        // (2) ทำความสะอาดฉาก Sans หากมี <--- (เพิ่มใหม่)
+        if (sansBattle != null) {
+            root.getChildren().remove(sansBattle); // ลบ SansBattleScene ออกจาก root
+            sansBattle = null;
+            canvas.setVisible(true); // ทำให้ canvas หลักกลับมาแสดง
+            Logger.log(Logger.LogType.INFO, "SansBattleScene cleared and canvas restored.");
+        }
+
         render();
     }
 
@@ -475,11 +636,243 @@ public class GameStage {
         }
     }
 
+    private void updateBattleTransition(double deltaTime) {
+        if (fadeTimer < FADE_DURATION) {
+            fadeTimer += deltaTime;
+            fadeOpacity = Math.min(1.0, fadeTimer / FADE_DURATION);
+        } else {
+            fadeOpacity = 1.0;
+
+            if (this.sansBattle == null) {
+                this.sansBattle = new SansBattleScene(
+                        this.playerHP,
+                        this.menuSelectSound,
+                        gameController.getPlayer().getShootSound(),
+                        this.sansHitSound,
+                        this.playerHurtSound
+                );
+                this.root.getChildren().add(this.sansBattle);
+            }
+
+            this.canvas.setVisible(false);
+            this.sansBattle.setVisible(true);
+
+            this.isFadingIn = true;
+            this.fadeTimer = 0.0;
+            this.currentGameState = GameState.SANS_BATTLE;
+            Logger.log(Logger.LogType.INFO, "--- SANS BATTLE INITIATED ---");
+        }
+
+        renderGameOnly();
+        drawFadeOverlay();
+    }
+
+    private void updateSansBattle(double deltaTime) {
+        if (isFadingIn) {
+            if (fadeTimer < FADE_DURATION) {
+                fadeTimer += deltaTime;
+                fadeOpacity = 1.0 - Math.min(1.0, fadeTimer / FADE_DURATION);
+            } else {
+                fadeOpacity = 0.0;
+                isFadingIn = false;
+
+                sansBattle.startBattle();
+                if (sansMusicPlayer != null && sansMusicPlayer.getStatus() != MediaPlayer.Status.PLAYING) {
+                    sansMusicPlayer.seek(Duration.ZERO);
+                    sansMusicPlayer.play();
+                }
+            }
+        } else {
+            if (sansBattle != null) {
+                sansBattle.update(deltaTime);
+
+                if (sansBattle.isPlayerDead()) {
+                    Logger.log(Logger.LogType.INFO, "Player died in Sans Battle. Triggering GAME_OVER.");
+                    if (sansMusicPlayer != null) sansMusicPlayer.stop();
+
+                    this.fadeTimer = 0.0;
+                    this.currentGameState = GameState.GAME_OVER;
+                    return;
+                }
+
+                if (sansBattle.isBattleOver()) {
+                    if (sansBattle.getBattleResult() == SansBattleScene.BattleResult.GOOD_ENDING) {
+                        Logger.log(Logger.LogType.INFO, "Good Ending Triggered. Fading out Sans scene.");
+                        if (sansMusicPlayer != null) sansMusicPlayer.stop();
+
+                        this.fadeTimer = 0.0;
+                        this.currentGameState = GameState.GOOD_ENDING;
+                        this.goodEndingTimer = 0.0;
+                    } else if (sansBattle.getBattleResult() == SansBattleScene.BattleResult.BAD_ENDING) {
+                        Logger.log(Logger.LogType.INFO, "Bad Ending Triggered. Fading out Sans scene.");
+                        if (sansMusicPlayer != null) sansMusicPlayer.stop();
+
+                        this.fadeTimer = 0.0;
+                        this.currentGameState = GameState.BAD_ENDING;
+                        this.goodEndingTimer = 0.0;
+                    } else {
+                        goToMainMenu();
+                    }
+                }
+            }
+        }
+
+        if (fadeOpacity > 0) {
+            drawFadeOverlay();
+        }
+    }
+
+    private void updateGoodEnding(double deltaTime) {
+        if (goodEndingMusicPlayer != null && goodEndingMusicPlayer.getStatus() != MediaPlayer.Status.PLAYING) {
+            goodEndingMusicPlayer.seek(Duration.ZERO);
+            goodEndingMusicPlayer.play();
+        }
+
+        if (fadeTimer < FADE_DURATION) {
+            fadeTimer += deltaTime;
+            fadeOpacity = 1.0 - Math.min(1.0, fadeTimer / FADE_DURATION);
+
+            if (sansBattle != null) {
+                sansBattle.setOpacity(fadeOpacity);
+            }
+        } else {
+            if (sansBattle != null) {
+                sansBattle.setVisible(false);
+            }
+            canvas.setVisible(true);
+
+            goodEndingTimer += deltaTime;
+
+            if (goodEndingTimer >= GOOD_ENDING_DURATION) {
+                goToMainMenu();
+                return;
+            }
+
+            double endingFadeInOpacity = 1.0;
+            if (goodEndingTimer < FADE_DURATION) {
+                endingFadeInOpacity = goodEndingTimer / FADE_DURATION;
+            }
+            gc.setGlobalAlpha(endingFadeInOpacity);
+
+            if (goodEndingImage != null) {
+                gc.setFill(Color.BLACK);
+                gc.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
+                gc.drawImage(goodEndingImage, 0, 0, canvas.getWidth(), canvas.getHeight());
+            } else {
+                gc.setFill(Color.BLACK);
+                gc.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
+            }
+
+            gc.setFill(Color.WHITE);
+            gc.setFont(Font.font("Press Start 2P", FontWeight.NORMAL, 16));
+            gc.setTextAlign(TextAlignment.LEFT);
+            String scoreText = String.format("SCORE: %d", gameController.getPlayer().getScore());
+            gc.fillText(scoreText, 20, 30);
+
+            double lifeX = 550;
+            double lifeY = 550;
+            if (lifeIconImage != null) {
+                gc.drawImage(lifeIconImage, lifeX, lifeY, 40, 40);
+            }
+            gc.setFont(Font.font("Press Start 2P", FontWeight.BOLD, 24));
+            gc.setTextAlign(TextAlignment.LEFT);
+            String livesText = String.format("x %d", gameController.getPlayer().getLives());
+            gc.fillText(livesText, lifeX + 40 + 10, lifeY + 30);
+
+            gc.setGlobalAlpha(1.0);
+        }
+    }
+
+    private void updateBadEnding(double deltaTime) {
+        if (badEndingMusicPlayer != null && badEndingMusicPlayer.getStatus() != MediaPlayer.Status.PLAYING) {
+            badEndingMusicPlayer.seek(Duration.ZERO);
+            badEndingMusicPlayer.play();
+        }
+
+        if (fadeTimer < FADE_DURATION) {
+            fadeTimer += deltaTime;
+            fadeOpacity = 1.0 - Math.min(1.0, fadeTimer / FADE_DURATION);
+            if (sansBattle != null) {
+                sansBattle.setOpacity(fadeOpacity);
+            }
+        } else {
+            if (sansBattle != null) {
+                sansBattle.setVisible(false);
+            }
+            canvas.setVisible(true);
+
+            goodEndingTimer += deltaTime;
+
+            if (goodEndingTimer >= GOOD_ENDING_DURATION) {
+                goToMainMenu();
+                return;
+            }
+
+            double endingFadeInOpacity = 1.0;
+            if (goodEndingTimer < FADE_DURATION) {
+                endingFadeInOpacity = goodEndingTimer / FADE_DURATION;
+            }
+            gc.setGlobalAlpha(endingFadeInOpacity);
+
+            if (badEndingImage != null) {
+                gc.setFill(Color.BLACK);
+                gc.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
+                gc.drawImage(badEndingImage, 0, 0, canvas.getWidth(), canvas.getHeight());
+            } else {
+                gc.setFill(Color.BLACK);
+                gc.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
+            }
+
+            gc.setFill(Color.WHITE);
+            gc.setFont(Font.font("Press Start 2P", FontWeight.NORMAL, 16));
+            gc.setTextAlign(TextAlignment.LEFT);
+            String scoreText = String.format("SCORE: %d", gameController.getPlayer().getScore());
+            gc.fillText(scoreText, 20, 30);
+
+            double lifeX = 550;
+            double lifeY = 550;
+            if (lifeIconImage != null) {
+                gc.drawImage(lifeIconImage, lifeX, lifeY, 40, 40);
+            }
+            gc.setFont(Font.font("Press Start 2P", FontWeight.BOLD, 24));
+            gc.setTextAlign(TextAlignment.LEFT);
+            String livesText = String.format("x %d", gameController.getPlayer().getLives());
+            gc.fillText(livesText, lifeX + 40 + 10, lifeY + 30);
+
+            gc.setGlobalAlpha(1.0);
+        }
+    }
+
+    private void goToMainMenu() {
+        currentGameState = GameState.MAIN_MENU;
+
+        if (gameOverMusicPlayer != null) gameOverMusicPlayer.stop();
+        if (goodEndingMusicPlayer != null) goodEndingMusicPlayer.stop();
+        if (sansMusicPlayer != null) sansMusicPlayer.stop();
+        if (badEndingMusicPlayer != null) badEndingMusicPlayer.stop();
+
+        if (menuMusicPlayer != null) {
+            menuMusicPlayer.seek(Duration.ZERO);
+            menuMusicPlayer.play();
+        }
+
+        canvas.setVisible(true);
+        canvas.setOpacity(1.0);
+
+        if (sansBattle != null) {
+            root.getChildren().remove(sansBattle);
+            sansBattle = null;
+        }
+    }
+
     private void stopAllSounds() {
         if (menuMusicPlayer != null) menuMusicPlayer.stop();
         if (battleMusicPlayer != null) battleMusicPlayer.stop();
         if (victoryMusicPlayer != null) victoryMusicPlayer.stop();
         if (gameOverMusicPlayer != null) gameOverMusicPlayer.stop();
+        if (sansMusicPlayer != null) sansMusicPlayer.stop();
+        if (badEndingMusicPlayer != null) badEndingMusicPlayer.stop();
+        if (goodEndingMusicPlayer != null) goodEndingMusicPlayer.stop();
         if (timeStopSound != null) timeStopSound.stop();
         if (timeResumeSound != null) timeResumeSound.stop();
     }
@@ -660,6 +1053,10 @@ public class GameStage {
         double centerX = this.canvas.getWidth() / 2;
         double centerY = this.canvas.getHeight() / 2;
 
+        if (gameController.getCurrentStage() == 3) {
+            return;
+        }
+
         if (gameController.isCountdownActive()) {
             gc.setFont(Font.font("Press Start 2P", FontWeight.BOLD, 80));
             gc.setFill(Color.WHITE);
@@ -714,4 +1111,16 @@ public class GameStage {
         }
         gc.setTextAlign(TextAlignment.LEFT);
     }
+
+    private void drawFadeOverlay() {
+        if (stageClearImage == null) {
+            gc.setFill(new Color(0, 0, 0, fadeOpacity));
+            gc.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
+        } else {
+            gc.setGlobalAlpha(fadeOpacity);
+            gc.drawImage(stageClearImage, 0, 0, canvas.getWidth(), canvas.getHeight());
+            gc.setGlobalAlpha(1.0);
+        }
+    }
+
 }

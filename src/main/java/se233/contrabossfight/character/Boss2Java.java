@@ -150,12 +150,12 @@ public class Boss2Java extends Boss {
                 frame.getMinX(), frame.getMinY(), frame.getWidth(), frame.getHeight(),
                 this.x, this.y, this.width, this.height);
 
-        if (isAlive) {
-            BoundingBox hb = getBoundingBox();
-            gc.setStroke(Color.RED);
-            gc.setLineWidth(1);
-            gc.strokeRect(hb.getMinX(), hb.getMinY(), hb.getWidth(), hb.getHeight());
-        }
+        // if (isAlive) {
+        //     BoundingBox hb = getBoundingBox();
+        //     gc.setStroke(Color.RED);
+        //     gc.setLineWidth(1);
+        //     gc.strokeRect(hb.getMinX(), hb.getMinY(), hb.getWidth(), hb.getHeight());
+        // }
     }
 
     private void triggerSniperExplosion(AbstractSprite target) {

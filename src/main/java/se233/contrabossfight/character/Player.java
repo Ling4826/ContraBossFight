@@ -12,6 +12,7 @@ import javafx.scene.media.AudioClip;
 import se233.contrabossfight.sprite.*;
 import se233.contrabossfight.util.Logger;
 import se233.contrabossfight.util.ResourceLoadingException;
+import javafx.scene.effect.ColorAdjust;
 
 public class Player extends AbstractSprite {
     private int lives;
@@ -31,6 +32,8 @@ public class Player extends AbstractSprite {
     private boolean isShooting;
     private double shootCooldown = 0.0;
     private double shootingAnimationTimer;
+
+    private boolean isSilhouetteMode = false;
 
     private boolean isDying = false;
 
@@ -360,14 +363,25 @@ public class Player extends AbstractSprite {
         double sWidth = frame.getWidth();
         double sHeight = frame.getHeight();
 
+        if (isSilhouetteMode) {
+            gc.save();
+            ColorAdjust blackEffect = new ColorAdjust();
+            blackEffect.setBrightness(-1.0);
+            gc.setEffect(blackEffect);
+        }
+
         if (facingDirection == -1) {
             gc.drawImage(spriteSheet, sx + sWidth, sy, -sWidth, sHeight, x, y, width, height);
         } else {
             gc.drawImage(spriteSheet, sx, sy, sWidth, sHeight, x, y, width, height);
         }
 
-        renderHitbox(gc);
-        renderw(gc);
+        if (isSilhouetteMode) {
+            gc.restore();
+        }
+
+        //renderHitbox(gc);
+        //renderw(gc);
     }
 
     public void renderw(GraphicsContext gc) {
@@ -686,5 +700,17 @@ public class Player extends AbstractSprite {
 
     public void setProne(boolean prone) {
         this.isProne = prone;
+    }
+    public void stopMovement() {
+        this.isMovingLeft = false;
+        this.isMovingRight = false;
+        this.velocityX = 0;
+    }
+
+    public void setSilhouetteMode(boolean mode) {
+        this.isSilhouetteMode = mode;
+    }
+    public AudioClip getShootSound() {
+        return shootSound;
     }
 }

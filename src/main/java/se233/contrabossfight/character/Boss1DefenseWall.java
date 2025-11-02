@@ -299,12 +299,12 @@ public class Boss1DefenseWall extends Boss {
             if (imageToDraw != null) {
                 gc.drawImage(imageToDraw, x + 20, y + 50, width + 70, height + 70);
             }
-            if (isAlive) {
-                BoundingBox hb = getBoundingBox();
-                gc.setStroke(Color.YELLOW);
-                gc.setLineWidth(1);
-                gc.strokeRect(hb.getMinX(), hb.getMinY(), hb.getWidth(), hb.getHeight());
-            }
+            // if (isAlive) {
+            //     BoundingBox hb = getBoundingBox();
+            //     gc.setStroke(Color.YELLOW);
+            //     gc.setLineWidth(1);
+            //     gc.strokeRect(hb.getMinX(), hb.getMinY(), hb.getWidth(), hb.getHeight());
+            // }
         }
 
         @Override
@@ -421,12 +421,12 @@ public class Boss1DefenseWall extends Boss {
                 gc.drawImage(imageToDraw, x, y, width, height);
             }
 
-            if (isAlive) {
-                BoundingBox hb = getBoundingBox();
-                gc.setStroke(Color.YELLOW);
-                gc.setLineWidth(1);
-                gc.strokeRect(hb.getMinX(), hb.getMinY(), hb.getWidth(), hb.getHeight());
-            }
+            // if (isAlive) {
+            //     BoundingBox hb = getBoundingBox();
+            //     gc.setStroke(Color.YELLOW);
+            //     gc.setLineWidth(1);
+            //     gc.strokeRect(hb.getMinX(), hb.getMinY(), hb.getWidth(), hb.getHeight());
+            // }
         }
 
         @Override
@@ -592,10 +592,10 @@ public class Boss1DefenseWall extends Boss {
                     spriteSheet,
                     frame.getMinX(), frame.getMinY(), frame.getWidth(), frame.getHeight(),
                     this.x, this.y, this.width, this.height);
-            BoundingBox hb = getBoundingBox();
-            gc.setStroke(Color.YELLOW);
-            gc.setLineWidth(1);
-            gc.strokeRect(hb.getMinX(), hb.getMinY(), hb.getWidth(), hb.getHeight());
+            // BoundingBox hb = getBoundingBox();
+            // gc.setStroke(Color.YELLOW);
+            // gc.setLineWidth(1);
+            // gc.strokeRect(hb.getMinX(), hb.getMinY(), hb.getWidth(), hb.getHeight());
         }
 
         @Override

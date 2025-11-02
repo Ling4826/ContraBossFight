@@ -1,5 +1,6 @@
 package se233.contrabossfight.game;
 
+import javafx.geometry.BoundingBox;
 import javafx.scene.canvas.GraphicsContext;
 import se233.contrabossfight.character.*;
 import se233.contrabossfight.sprite.AbstractSprite;
@@ -17,6 +18,7 @@ public class GameController {
     private static final double GAME_HEIGHT = 600;
     private static final double PLAYER_WIDTH = 64 * 2.6;
     private static final double PLAYER_HEIGHT = 64 * 2.6;
+    private static final double STAGE_3_CUTSCENE_DURATION = 2.0;
 
     private Player player;
     private List<Boss> bosses;
@@ -35,6 +37,11 @@ public class GameController {
     private boolean isTimeStopped = false;
     private double timeStopTimer = 0.0;
     private double timeStopCooldown = 0.0;
+
+    private Sans sans;
+    private BoundingBox stage3Trigger;
+    private boolean isStage3CutsceneActive = false;
+    private double cutsceneTimer = 0.0;
 
     public GameController() {
         this.gameObjects = new ArrayList<>();
@@ -70,6 +77,11 @@ public class GameController {
         this.isCountdownActive = false;
         this.countdownTimer = 3.0;
 
+        this.isStage3CutsceneActive = false;
+        this.cutsceneTimer = 0.0;
+        this.sans = null;
+        this.stage3Trigger = null;
+
         Platform mainGround = null;
 
         switch (stage) {
@@ -98,12 +110,20 @@ public class GameController {
 
             case 3:
                 Logger.log(Logger.LogType.INFO, "Loading Stage 3 Platforms...");
-                mainGround = new Platform(0, 540, 800, 20);
+                mainGround = new Platform(0, 480, 800, 20);
                 mainGround.setDroppable(false);
                 platforms.add(mainGround);
-                platforms.add(new Platform(150, 450, 100, 20));
-                platforms.add(new Platform(300, 360, 100, 20));
-                platforms.add(new Platform(450, 270, 100, 20));
+                double sansWidth = 64 * 1.5;
+                double sansHeight = 64 * 1.5;
+                this.sans = new Sans(
+                        550,
+                        GAME_HEIGHT - sansHeight - 120,
+                        sansWidth,
+                        sansHeight
+                );
+
+                this.stage3Trigger = new BoundingBox(450, 0, 50, GAME_HEIGHT);
+                this.player.setStageBoundaries(0, 9999);
                 break;
 
             default:
@@ -113,6 +133,7 @@ public class GameController {
                 platforms.add(mainGround);
                 break;
         }
+
         Logger.log(Logger.LogType.INFO, "--- Loading Stage " + stage + " ---");
         gameObjects.addAll(platforms);
         gameObjects.addAll(walls);
@@ -120,16 +141,22 @@ public class GameController {
         this.player.respawnst();
         gameObjects.add(player);
 
-        if (this.annoyingDog == null) {
-            this.annoyingDog = new StartTriggerDog(
-                    300, -20,
-                    100 * 1.2, 200 * 1.2,
-                    "/se233/contrabossfight/images/AnnoyingDog.png"
-            );
+        if (this.currentStage != 3) {
+            if (this.annoyingDog == null) {
+                this.annoyingDog = new StartTriggerDog(
+                        300, -20,
+                        100 * 1.2, 200 * 1.2,
+                        "/se233/contrabossfight/images/AnnoyingDog.png"
+                );
+            }
+            this.annoyingDog.setAlive(true);
+            this.annoyingDog.setY(-20);
+            gameObjects.add(annoyingDog);
         }
-        this.annoyingDog.setAlive(true);
-        this.annoyingDog.setY(-20);
-        gameObjects.add(annoyingDog);
+
+        if (this.currentStage == 3 && this.sans != null) {
+            gameObjects.add(this.sans);
+        }
     }
 
     public boolean loadNextStage() {
@@ -148,6 +175,11 @@ public class GameController {
     private void startBossFight() {
         if (bossFightStarted) return;
 
+        if (currentStage == 3) {
+            Logger.log(Logger.LogType.INFO, "--- TRANSITION TO UNDERTALE BATTLE ---");
+            return;
+        }
+
         Logger.log(Logger.LogType.INFO, "--- BOSS FIGHT STARTED! (Stage " + currentStage + ") ---");
         this.bossFightStarted = true;
         this.annoyingDog.setAlive(false);
@@ -165,10 +197,6 @@ public class GameController {
                 break;
 
             case 3:
-                Boss1DefenseWall finalBoss = new Boss1DefenseWall(400, 250, newBulletsQueue);
-                finalBoss.takeDamage(-200);
-                this.bosses.add(finalBoss);
-                Logger.log(Logger.LogType.INFO, "Stage 3 Boss Loaded (sans)");
                 break;
         }
 
@@ -176,6 +204,7 @@ public class GameController {
     }
 
     public void updateGame(double deltaTime) {
+        player.setSilhouetteMode(this.currentStage == 3);
         player.update(deltaTime, platforms, walls);
 
         while (!newBulletsQueue.isEmpty()) {
@@ -208,13 +237,43 @@ public class GameController {
                 return !bullet.isAlive();
             });
         } else if (!bossFightStarted) {
-            updatePreBossFightPhase(deltaTime);
+            if (currentStage == 3) {
+                updateStage3PreBattle(deltaTime);
+            } else {
+                updatePreBossFightPhase(deltaTime);
+            }
         } else {
-            updateBossFightPhase(deltaTime);
+            if (currentStage == 3) {
+                player.stopMovement();
+            } else {
+                updateBossFightPhase(deltaTime);
+            }
+        }
+    }
+
+    private void updateStage3PreBattle(double deltaTime) {
+        if (isStage3CutsceneActive) {
+            cutsceneTimer -= deltaTime;
+            if (cutsceneTimer <= 0) {
+                isStage3CutsceneActive = false;
+                bossFightStarted = true;
+                Logger.log(Logger.LogType.INFO, "--- 5s STARE-DOWN OVER. TRANSITION TO BATTLE ---");
+            }
+        } else if (player.getBoundingBox().intersects(stage3Trigger)) {
+            isStage3CutsceneActive = true;
+            cutsceneTimer = STAGE_3_CUTSCENE_DURATION;
+            player.stopMovement();
+            Logger.log(Logger.LogType.INFO, "Player encountered Sans. Stare-down initiated (5s).");
+        } else {
+            activeBullets.removeIf(bullet -> {
+                bullet.update(deltaTime);
+                return !bullet.isAlive();
+            });
         }
     }
 
     private void updatePreBossFightPhase(double deltaTime) {
+        if (annoyingDog == null) return;
         annoyingDog.update(deltaTime);
 
         activeBullets.removeIf(bullet -> {
@@ -367,7 +426,7 @@ public class GameController {
         if (areAllBossesDefeated()) {
             return false;
         }
-        if (timeStopCooldown > 0 || isTimeStopped || !bossFightStarted) {
+        if (timeStopCooldown > 0 || isTimeStopped || !bossFightStarted || currentStage == 3) {
             return false;
         }
 
@@ -379,9 +438,14 @@ public class GameController {
     }
 
     public boolean areAllBossesDefeated() {
+        if (currentStage == 3) {
+            return false;
+        }
+
         if (!bossFightStarted || bosses.isEmpty()) {
             return false;
         }
+
         for (Boss boss : bosses) {
             if (boss.isAlive()) {
                 return false;
@@ -426,5 +490,9 @@ public class GameController {
 
     public int getCurrentStage() {
         return this.currentStage;
+    }
+
+    public boolean isStage3CutsceneActive() {
+        return this.isStage3CutsceneActive;
     }
 }

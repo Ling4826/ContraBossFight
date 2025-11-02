@@ -7,7 +7,7 @@ public class Platform extends AbstractSprite {
 
     private boolean isDroppable;
 
-    private static final boolean IS_DEBUG_MODE = true;
+    private static final boolean IS_DEBUG_MODE = false;
 
     public Platform(double x, double y, double width, double height) {
         super(x, y, width, height, "");

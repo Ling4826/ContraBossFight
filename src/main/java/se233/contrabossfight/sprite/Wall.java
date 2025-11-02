@@ -17,8 +17,8 @@ public class Wall extends AbstractSprite {
 
     @Override
     public void render(GraphicsContext gc) {
-        gc.setFill(Color.rgb(255, 0, 0, 1)); // สีแดง 40%
-        gc.fillRect(this.x, this.y, this.width, this.height);
+       // gc.setFill(Color.rgb(255, 0, 0, 1)); // สีแดง 40%
+       // gc.fillRect(this.x, this.y, this.width, this.height);
     }
 
     @Override
