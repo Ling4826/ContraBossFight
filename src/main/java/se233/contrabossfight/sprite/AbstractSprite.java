@@ -1,7 +1,8 @@
 package se233.contrabossfight.sprite;
 
-import javafx.scene.canvas.GraphicsContext;
 import javafx.geometry.BoundingBox;
+import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.image.Image;
 
 public abstract class AbstractSprite {
     protected double x;
@@ -11,7 +12,8 @@ public abstract class AbstractSprite {
     protected double velocityX;
     protected double velocityY;
     protected boolean isAlive;
-    protected String spriteSheetPath; // Path หรือ ID สำหรับการโหลดภาพ
+    protected String spriteSheetPath;
+    protected Image spriteImage;
 
     public AbstractSprite(double x, double y, double width, double height, String spriteSheetPath) {
         this.x = x;
@@ -24,27 +26,58 @@ public abstract class AbstractSprite {
         this.velocityY = 0;
     }
 
-    /**
-     * อัปเดตสถานะของวัตถุในแต่ละเฟรม
-     * @param deltaTime เวลาที่ผ่านไประหว่างเฟรม (วินาที)
-     */
     public abstract void update(double deltaTime);
 
-    /**
-     * วาดวัตถุบนหน้าจอ
-     * @param gc GraphicsContext ของ Canvas
-     */
     public abstract void render(GraphicsContext gc);
 
-    /**
-     * ตรวจสอบการชนกันโดยใช้ Bounding Box
-     */
     public BoundingBox getBoundingBox() {
         return new BoundingBox(x, y, width, height);
     }
 
-    // Getters และ Setters (ไม่แสดงทั้งหมดเพื่อความกระชับ)
-    public boolean isAlive() { return isAlive; }
-    public double getX() { return x; }
-    // ...
+    public void takeDamage(double damage) {
+    }
+
+    public double getX() {
+        return x;
+    }
+
+    public double getY() {
+        return y;
+    }
+
+    public void setY(double y) {
+        this.y = y;
+    }
+
+    public double getWidth() {
+        return width;
+    }
+
+    public double getHeight() {
+        return height;
+    }
+
+    public double getVelocityX() {
+        return velocityX;
+    }
+
+    public void setVelocityX(double velocityX) {
+        this.velocityX = velocityX;
+    }
+
+    public double getVelocityY() {
+        return velocityY;
+    }
+
+    public void setVelocityY(double velocityY) {
+        this.velocityY = velocityY;
+    }
+
+    public boolean isAlive() {
+        return isAlive;
+    }
+
+    public void setAlive(boolean alive) {
+        isAlive = alive;
+    }
 }

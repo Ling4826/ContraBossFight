@@ -1,43 +1,77 @@
 package se233.contrabossfight.util;
 
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.logging.FileHandler;
+import java.util.logging.Level;
+import java.util.logging.SimpleFormatter;
 
-/**
- * คลาสสำหรับจัดการ Logging ตามข้อกำหนดของโปรเจกต์
- */
 public class Logger {
-    private static final String LOG_FILE = "game_log.txt";
-    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
-    private static final LogType LOG_LEVEL = LogType.DEBUG; // กำหนด log level ที่นี่
+
+    private static final java.util.logging.Logger JUL_LOGGER =
+            java.util.logging.Logger.getLogger(Logger.class.getName());
+
+    private static boolean isInitialized = false;
 
     public enum LogType {
-        TRACE, DEBUG, INFO, WARN, ERROR, FATAL // Log Level ต่างๆ
+        DEBUG,
+        INFO,
+        WARN,
+        FATAL,
+        ERROR
     }
 
-    /**
-     * เมธอดสำหรับบันทึก Log
-     * @param type ชนิดของ Log (เช่น INFO, WARN)
-     * @param message ข้อความ Log
-     */
-    public static void log(LogType type, String message) {
-        if (type.ordinal() >= LOG_LEVEL.ordinal()) { // ตรวจสอบ Log Level
-            String timestamp = LocalDateTime.now().format(FORMATTER);
-            String logEntry = String.format("[%s] [%s] %s", timestamp, type.name(), message);
+    public static void setup() {
+        if (isInitialized) return;
+        try {
 
-            // พิมพ์ใน Console
-            System.out.println(logEntry);
-
-            // เขียนลงไฟล์
-            try (FileWriter fw = new FileWriter(LOG_FILE, true);
-                 PrintWriter pw = new PrintWriter(fw)) {
-                pw.println(logEntry);
-            } catch (IOException e) {
-                System.err.println("Error writing to log file: " + e.getMessage());
+            Path logDirectory = Paths.get("logs");
+            if (!Files.exists(logDirectory)) {
+                Files.createDirectories(logDirectory);
+                System.out.println("Logger: Created 'logs' directory successfully.");
             }
+
+            JUL_LOGGER.setUseParentHandlers(true);
+            FileHandler fileHandler = new FileHandler("logs/game.log", 1024 * 1024, 5, true);
+
+            fileHandler.setFormatter(new SimpleFormatter());
+            JUL_LOGGER.addHandler(fileHandler);
+            JUL_LOGGER.setLevel(Level.INFO);
+
+            isInitialized = true;
+            log(LogType.INFO, "Logger initialized. Logging to 'logs/game.log'");
+
+        } catch (IOException e) {
+            System.err.println("CRITICAL: Could not initialize logger file handler.");
+            e.printStackTrace();
+        }
+    }
+
+    public static void log(LogType type, String message) {
+        if (!isInitialized) setup();
+        JUL_LOGGER.log(mapLevel(type), message);
+    }
+
+    public static void log(LogType type, String message, Throwable thrown) {
+        if (!isInitialized) setup();
+        JUL_LOGGER.log(mapLevel(type), message, thrown);
+    }
+
+    private static Level mapLevel(LogType type) {
+        switch (type) {
+            case DEBUG:
+                return Level.FINE;
+            case INFO:
+                return Level.INFO;
+            case WARN:
+                return Level.WARNING;
+            case ERROR:
+            case FATAL:
+                return Level.SEVERE;
+            default:
+                return Level.CONFIG;
         }
     }
 }
